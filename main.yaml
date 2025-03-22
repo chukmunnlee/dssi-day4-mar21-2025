@@ -1,0 +1,208 @@
+# PIPELINE DEFINITION
+# Name: random-power
+# Inputs:
+#    init_high: int
+#    init_low: int
+# Outputs:
+#    Output: int
+components:
+  comp-power:
+    executorLabel: exec-power
+    inputDefinitions:
+      parameters:
+        base:
+          parameterType: NUMBER_INTEGER
+        exponent:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: NUMBER_INTEGER
+  comp-rand-num:
+    executorLabel: exec-rand-num
+    inputDefinitions:
+      parameters:
+        high:
+          parameterType: NUMBER_INTEGER
+        low:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: NUMBER_INTEGER
+  comp-rand-num-2:
+    executorLabel: exec-rand-num-2
+    inputDefinitions:
+      parameters:
+        high:
+          parameterType: NUMBER_INTEGER
+        low:
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: NUMBER_INTEGER
+deploymentSpec:
+  executors:
+    exec-power:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - power
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.12.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef power(base: int, exponent: int) -> int:\n   result = 1\n   for\
+          \ i in range(exponent):\n      result = result * base \n   return result\
+          \ \n\n"
+        image: python:3.12
+    exec-rand-num:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - rand_num
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.12.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'numpy' 'pandas'\
+          \ && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef rand_num(low: int, high: int) -> int:\n   # import must be inside\
+          \ the function\n   import random   \n   import pandas as pd\n   import numpy\
+          \ as np\n   return random.randint(low, high)\n\n"
+        image: python:3.12
+    exec-rand-num-2:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - rand_num
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.12.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'numpy' 'pandas'\
+          \ && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef rand_num(low: int, high: int) -> int:\n   # import must be inside\
+          \ the function\n   import random   \n   import pandas as pd\n   import numpy\
+          \ as np\n   return random.randint(low, high)\n\n"
+        image: python:3.12
+pipelineInfo:
+  displayName: Contrive ML Pipeline
+  name: random-power
+root:
+  dag:
+    outputs:
+      parameters:
+        Output:
+          valueFromParameter:
+            outputParameterKey: Output
+            producerSubtask: power
+    tasks:
+      power:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-power
+        dependentTasks:
+        - rand-num
+        - rand-num-2
+        inputs:
+          parameters:
+            base:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: rand-num
+            exponent:
+              taskOutputParameter:
+                outputParameterKey: Output
+                producerTask: rand-num-2
+        taskInfo:
+          name: power
+      rand-num:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-rand-num
+        inputs:
+          parameters:
+            high:
+              componentInputParameter: init_high
+            low:
+              componentInputParameter: init_low
+        taskInfo:
+          name: rand-num
+      rand-num-2:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-rand-num-2
+        inputs:
+          parameters:
+            high:
+              componentInputParameter: init_high
+            low:
+              componentInputParameter: init_low
+        taskInfo:
+          name: rand-num-2
+  inputDefinitions:
+    parameters:
+      init_high:
+        parameterType: NUMBER_INTEGER
+      init_low:
+        parameterType: NUMBER_INTEGER
+  outputDefinitions:
+    parameters:
+      Output:
+        parameterType: NUMBER_INTEGER
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.12.1
